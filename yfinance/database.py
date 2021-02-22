@@ -74,5 +74,6 @@ def cache_history(df, ticker):
             SELECT *
             FROM ticker_history
             WHERE Date BETWEEN ? and ?
-        ''', con=con, index_col='Date', params=[df.index.min().to_pydatetime(), df.index.max().to_pydatetime()], parse_dates='Date')[df.columns]
+              AND Ticker = ?
+        ''', con=con, index_col='Date', params=[df.index.min().to_pydatetime(), df.index.max().to_pydatetime(), ticker], parse_dates='Date')[df.columns]
 

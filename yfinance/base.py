@@ -27,6 +27,12 @@ import requests as _requests
 import pandas as _pd
 import numpy as _np
 
+import sqlite3
+from contextlib import closing
+from pathlib import Path
+
+from .database import cache_history
+
 try:
     from urllib.parse import quote as urlencode
 except ImportError:
@@ -76,7 +82,7 @@ class TickerBase():
     def history(self, period="1mo", interval="1d",
                 start=None, end=None, prepost=False, actions=True,
                 auto_adjust=True, back_adjust=False,
-                proxy=None, rounding=False, tz=None, **kwargs):
+                proxy=None, rounding=False, tz=None, cache=False, **kwargs):
         """
         :Parameters:
             period : str
@@ -106,6 +112,8 @@ class TickerBase():
             tz: str
                 Optional timezone locale for dates.
                 (default data is returned as non-localized dates)
+            cache: bool
+                Whether or not to cache to local sqlite
             **kwargs: dict
                 debug: bool
                     Optional. If passed as False, will suppress
@@ -244,6 +252,9 @@ class TickerBase():
         if not actions:
             df.drop(columns=["Dividends", "Stock Splits"], inplace=True)
 
+        if cache:
+            df = cache_history(df, self.ticker)
+
         return df
 
     # ------------------------
@@ -282,36 +293,36 @@ class TickerBase():
         data = utils.get_json(ticker_url, proxy)
 
         # holders
-        holders = _pd.read_html(ticker_url+'/holders')
+        holders = _pd.read_html(ticker_url + '/holders')
 
-        if len(holders)>=3:
+        if len(holders) >= 3:
             self._major_holders = holders[0]
             self._institutional_holders = holders[1]
             self._mutualfund_holders = holders[2]
-        elif len(holders)>=2:
+        elif len(holders) >= 2:
             self._major_holders = holders[0]
             self._institutional_holders = holders[1]
         else:
             self._major_holders = holders[0]
 
-        #self._major_holders = holders[0]
-        #self._institutional_holders = holders[1]
+        # self._major_holders = holders[0]
+        # self._institutional_holders = holders[1]
 
         if self._institutional_holders is not None:
             if 'Date Reported' in self._institutional_holders:
                 self._institutional_holders['Date Reported'] = _pd.to_datetime(
-                self._institutional_holders['Date Reported'])
+                    self._institutional_holders['Date Reported'])
             if '% Out' in self._institutional_holders:
                 self._institutional_holders['% Out'] = self._institutional_holders[
-                '% Out'].str.replace('%', '').astype(float)/100
+                                                           '% Out'].str.replace('%', '').astype(float) / 100
 
         if self._mutualfund_holders is not None:
             if 'Date Reported' in self._mutualfund_holders:
                 self._mutualfund_holders['Date Reported'] = _pd.to_datetime(
-                self._mutualfund_holders['Date Reported'])
+                    self._mutualfund_holders['Date Reported'])
             if '% Out' in self._mutualfund_holders:
                 self._mutualfund_holders['% Out'] = self._mutualfund_holders[
-                '% Out'].str.replace('%', '').astype(float)/100
+                                                        '% Out'].str.replace('%', '').astype(float) / 100
 
         # sustainability
         d = {}
@@ -373,20 +384,20 @@ class TickerBase():
             pass
 
         # get fundamentals
-        data = utils.get_json(ticker_url+'/financials', proxy)
+        data = utils.get_json(ticker_url + '/financials', proxy)
 
         # generic patterns
         for key in (
-            (self._cashflow, 'cashflowStatement', 'cashflowStatements'),
-            (self._balancesheet, 'balanceSheet', 'balanceSheetStatements'),
-            (self._financials, 'incomeStatement', 'incomeStatementHistory')
+                (self._cashflow, 'cashflowStatement', 'cashflowStatements'),
+                (self._balancesheet, 'balanceSheet', 'balanceSheetStatements'),
+                (self._financials, 'incomeStatement', 'incomeStatementHistory')
         ):
 
             item = key[1] + 'History'
             if isinstance(data.get(item), dict):
                 key[0]['yearly'] = cleanup(data[item][key[2]])
 
-            item = key[1]+'HistoryQuarterly'
+            item = key[1] + 'HistoryQuarterly'
             if isinstance(data.get(item), dict):
                 key[0]['quarterly'] = cleanup(data[item][key[2]])
 
@@ -529,7 +540,7 @@ class TickerBase():
 
         url = 'https://markets.businessinsider.com/ajax/' \
               'SearchController_Suggest?max_results=25&query=%s' \
-            % urlencode(q)
+              % urlencode(q)
         data = _requests.get(url=url, proxies=proxy).text
 
         search_str = '"{}|'.format(ticker)

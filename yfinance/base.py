@@ -82,7 +82,7 @@ class TickerBase():
     def history(self, period="1mo", interval="1d",
                 start=None, end=None, prepost=False, actions=True,
                 auto_adjust=True, back_adjust=False,
-                proxy=None, rounding=False, tz=None, cache=False, **kwargs):
+                proxy=None, rounding=False, tz=None, cache=True, **kwargs):
         """
         :Parameters:
             period : str

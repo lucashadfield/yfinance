@@ -29,10 +29,10 @@ from . import Ticker, utils
 from . import shared
 
 
-def download(tickers, start=None, end=None, actions=False, threads=True,
+def download(tickers, start=None, end=None, actions=False, threads=False,
              group_by='column', auto_adjust=False, back_adjust=False,
              progress=True, period="max", interval="1d", prepost=False,
-             proxy=None, rounding=False, cache=False, **kwargs):
+             proxy=None, rounding=False, cache=True, **kwargs):
     """Download yahoo tickers
     :Parameters:
         tickers : str, list
